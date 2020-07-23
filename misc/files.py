@@ -1,13 +1,15 @@
 # -*- coding: utf-8 -*-
 from collections import defaultdict
-
 from typing import List, Dict, Union
-import numpy as np
-import glob
-import os
+
 import sys
+import os
+import glob
+import shutil
+import random
 import argparse
 import logging
+import numpy as np
 
 OUT_SUBSET_FOLDER = "subsets"
 UNGROUPED_STR = "ungrouped"
@@ -26,17 +28,20 @@ class CmdParser(argparse.ArgumentParser):
         self.add_argument('-o', '--output_folder', action='store', nargs='*', type=os.path.abspath, default=[None],
                           help="The root where the subset documents are stored (defaults to 'input-folder/{}'"
                           .format(OUT_SUBSET_FOLDER))
-        self.add_argument('-e', '--endings', action='store', nargs='*', type=str, default='*',
-                          help="What document types should be included (file endings); default='*' (i.e. all)")
+        self.add_argument('-e', '--extensions', action='store', nargs='*', type=str, default='*',
+                          help="What document types should be included (file extensions); default='*' (i.e. all)")
         self.add_argument('-r', '--random_seed', action='store', nargs='*', type=int, default=42,
                           help="Random seed for shuffling and splitting the subsets; default=42")
-        self.add_argument('-g', '--group_by_ending', action='store_true',
-                          help="Whether files shall be grouped by its ending, so that ech file ending is regarded"
-                               "separately when 'count' is evaluated. This is a flag and evaluates to True if present.")
+        self.add_argument('-g', '--group_by_extension', action='store_true',
+                          help="Whether files shall be grouped by their extension, so that each file extension is"
+                               " regarded separately when 'subsets' is evaluated."
+                               " This is a flag and evaluates to True if present.")
         self.add_argument('-s', '--dont_suppress_empty', action='store_true',
                           help="Whether groups that are empty (because there were fewer documents than subsets)"
-                               "shouldn't be suppressed. This is a flag and evaluates to True if present.")
+                               " shouldn't be suppressed. This is a flag and evaluates to True if present.")
         self.add_argument('-c', '--include_extensionless', action='store_true',
+                          help="")
+        self.add_argument('-d', '--folders_for_ext', action='store_true',
                           help="")
         self.add_argument('-n', '--group_names', action='store', nargs='*', type=str,
                           help="")
@@ -83,12 +88,22 @@ def _get_output_folder(root_folder: str, out_folder: Union[None, str]):
     return foo
 
 
-def _distribute_files(groups: Dict[str, List[List[int]]], group_names: List[str],
-                      file_index: Dict[int, str]):
-    print(file_index)
+def _distribute_files(groups: Dict[str, List[List[int]]], group_names: List[str], file_index: Dict[int, str],
+                      root_out: str, folders_for_extensions: bool = False):
+    file_dist = defaultdict(set)
     for ext_name, group in groups.items():
-        print([x for x in zip(group_names, group)])  # ToDo: right now always the first group_name gets the odd file
-    print(groups)
+        random.shuffle(group_names)
+        for x in zip(group_names, group):
+            if ext_name == UNGROUPED_STR or not folders_for_extensions:
+                file_dist[os.path.join(x[0])].update(x[1])
+            else:
+                file_dist[os.path.join(x[0], ext_name)].update(x[1])
+    for _path, _files in file_dist.items():
+        _path_complete = os.path.join(root_out, _path)
+        if not os.path.exists(_path_complete):
+            os.makedirs(_path_complete)
+        for _fi in _files:
+            shutil.copy(file_index[_fi], _path_complete)
 
 
 def _check_group_names(group_names: Union[None, List[str]], subsets: int):
@@ -103,18 +118,18 @@ def _check_group_names(group_names: Union[None, List[str]], subsets: int):
     return group_names
 
 
-def subset_documents(root_folder: str, out_folder: str, subsets: int, endings: List[str], random_seed: int,
-                     group_endings: bool = False, suppress_empty: bool = True, include_extensionless: bool = False,
-                     group_names: List[str] = None):
-    group_names = _check_group_names(group_names, subsets)
+def subset_documents(root_folder: str, out_folder: str, subsets: int, extensions: List[str], random_seed: int,
+                     group_extensions: bool = False, suppress_empty: bool = True, include_extensionless: bool = False,
+                     group_names: List[str] = None, folders_for_extensions: bool = False):
 
+    group_names = _check_group_names(group_names=group_names, subsets=subsets)
     files = set()
-    file_types = set(endings)
-    for ending in endings:
+    file_types = set(extensions)
+    for ending in extensions:
         fi_pattern = os.path.join(root_folder, "*.{}".format(ending))
         files.update(glob.glob(fi_pattern))
-    if len(endings) == 1 and endings[0] == "*":
-        file_types = set([os.path.splitext(e)[-1] for e in files])
+    if len(extensions) == 1 and extensions[0] == "*":
+        file_types = set([os.path.splitext(e)[-1][1:] for e in files])
     if include_extensionless:
         extensionless = [f for f in glob.glob(os.path.join(root_folder, "*"))
                          if len(os.path.splitext(os.path.split(f)[-1])[-1]) == 0 and os.path.isfile(f)]
@@ -125,26 +140,30 @@ def subset_documents(root_folder: str, out_folder: str, subsets: int, endings: L
     rev_file_index = {f: i for i, f in file_index.items()}
 
     np.random.seed(random_seed)
-    if group_endings:
+    if group_extensions:
         endings_file_index = defaultdict(dict)
         for i, file in file_index.items():
             end = os.path.splitext(file)[-1]
-            endings_file_index[end if len(end) != 0 else NO_ENDING_TYPE][i] = file
-        groups = {group_name: _gather_into_groups(endings_file_index[group_name], subsets, suppress_empty)
+            endings_file_index[end[1:] if len(end) != 0 else NO_ENDING_TYPE][i] = file
+        groups = {group_name: _gather_into_groups(file_index=endings_file_index[group_name], group_count=subsets,
+                                                  suppress_empty=suppress_empty)
                   for group_name in file_types}
     else:
-        groups = {UNGROUPED_STR: _gather_into_groups(file_index, subsets, suppress_empty)}
+        groups = {UNGROUPED_STR: _gather_into_groups(file_index=file_index, group_count=subsets,
+                                                     suppress_empty=suppress_empty)}
 
-    size_distro = _file_size_distribution(groups, file_index)
-    output_folder = _get_output_folder(root_folder, out_folder)
+    size_distro = _file_size_distribution(groups=groups, file_index=file_index)
+    output_folder = _get_output_folder(root_folder=root_folder, out_folder=out_folder)
 
-    _distribute_files(groups, group_names, file_index)
+    random.seed(random_seed)
+    _distribute_files(groups=groups, group_names=group_names, file_index=file_index, root_out=output_folder,
+                      folders_for_extensions=folders_for_extensions)
 
 
 if __name__ == "__main__":
     parser = CmdParser()
     args = parser.parse_args(sys.argv[1:])
     subset_documents(root_folder=args.input_folder[0], out_folder=args.output_folder[0], subsets=args.subsets[0],
-                     endings=args.endings, random_seed=args.random_seed, group_endings=args.group_by_ending,
+                     extensions=args.extensions, random_seed=args.random_seed, group_extensions=args.group_by_extension,
                      suppress_empty=not args.dont_suppress_empty, include_extensionless=args.include_extensionless,
-                     group_names=args.group_names)
+                     group_names=args.group_names, folders_for_extensions=args.folders_for_ext)
