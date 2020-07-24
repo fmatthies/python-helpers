@@ -128,8 +128,6 @@ def _distribute_files(groups: Dict[str, List[List[int]]], group_names: List[str]
                 file_dist[os.path.join(x[0])].update(x[1])
             else:
                 file_dist[os.path.join(x[0], ext_name)].update(x[1])
-    print(file_dist)
-    sys.exit(0)
     for _path, _files in file_dist.items():
         _path_complete = os.path.join(root_out, _path)
         if not os.path.exists(_path_complete):
