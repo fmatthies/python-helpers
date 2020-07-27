@@ -192,11 +192,19 @@ def subset_documents(root_folder: str, out_folder: str, subsets: int, extensions
                       folders_for_extensions=folders_for_extensions)
 
 
-if __name__ == "__main__":
+def main(cmd_args: list):
     parser = CmdParser()
-    args = parser.parse_args(sys.argv[1:])
+    if len(cmd_args) <= 1:
+        parser.print_help()
+        logging.error("Not enough arguments given; see help above.")
+        sys.exit(-1)
+    args = parser.parse_args(cmd_args[1:])
     subset_documents(root_folder=args.input_folder[0], out_folder=args.output_folder[0], subsets=args.subsets[0],
                      extensions=args.extensions, random_seed=args.random_seed, group_extensions=args.group_by_extension,
                      suppress_empty=not args.dont_suppress_empty, include_extensionless=args.include_extensionless,
                      group_names=args.group_names, folders_for_extensions=args.folders_for_ext,
                      max_per_subset=args.max_per_subset, same_for_all=args.same_for_all)
+
+
+if __name__ == "__main__":
+    main(sys.argv)
