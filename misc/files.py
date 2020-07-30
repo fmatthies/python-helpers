@@ -77,7 +77,8 @@ def _gather_into_groups(file_index: Dict[int, str], group_count: int, suppress_e
     if same_for_all:
         files = list()
         for i in range(group_count):
-            files.append(np_file_array.tolist()[:max_per_subset[i] if max_per_subset is not None else np_file_array.size])
+            files.append(
+                np_file_array.tolist()[:max_per_subset[i] if max_per_subset is not None else np_file_array.size])
         return files
     if suppress_empty:
         return [x.tolist()[:max_per_subset[i] if max_per_subset is not None else x.size]
@@ -155,7 +156,7 @@ def subset_documents(root_folder: str, out_folder: str, subsets: int, extensions
     group_names = _check_group_names(group_names=group_names, subsets=subsets)
     files = set()
     file_types = set(extensions)
-    for ending in extensions:
+    for ending in extensions:  # ToDo: strip potential dot from input
         fi_pattern = os.path.join(root_folder, "*.{}".format(ending))
         files.update(glob.glob(fi_pattern))
     if len(extensions) == 1 and extensions[0] == "*":
