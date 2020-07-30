@@ -30,15 +30,16 @@ def run_batch(files: list, args):
             logging.warning("'antiword' could not read the file, trying with 'catdoc'!")
             result = run_text_extraction(args.catdoc, fi)
 
-        process_text(result.stdout.decode('utf8', errors='backslashreplace'))
+        process_text(result.stdout, fi)
 
 
 def run_text_extraction(cmd: str, d_path: str):
     return subprocess.run([cmd, d_path], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
 
-def process_text(txt_string: str):
-    print(txt_string)
+def process_text(txt_string: bytes, file_name: str):
+    with open(os.path.splitext(os.path.abspath(file_name))[0] + ".txt", 'wb') as out:
+        out.write(txt_string)
 
 
 def main(cmd_args: list):
