@@ -30,7 +30,7 @@ def run_batch(files: list, args):
             logging.warning("'antiword' could not read the file, trying with 'catdoc'!")
             result = run_text_extraction(args.catdoc, fi)
 
-        process_text(str(result.stdout.strip(), encoding='utf-8'))
+        process_text(result.stdout.decode(sys.stdout.encoding))
 
 
 def run_text_extraction(cmd: str, d_path: str):
