@@ -38,6 +38,9 @@ def run_text_extraction(cmd: str, d_path: str):
 
 
 def process_text(txt_string: bytes, file_name: str):
+    # ToDo: should there be an option to deal with the table separator `|` that is inserted by antiword?
+    # ToDo: because when these txt files are viewed in brat the formatting looks ugly again
+    # ToDo: (probably because antiword uses simple spaces
     with open(os.path.splitext(os.path.abspath(file_name))[0] + ".txt", 'wb') as out:
         out.write(txt_string)
 
