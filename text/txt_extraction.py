@@ -26,15 +26,15 @@ class CmdParser(argparse.ArgumentParser):
 def run_batch(files: list, args):
     for fi in files:
         result = run_text_extraction(args.antiword if EXTRACTION_FLAG == ANTIWORD_CMD else args.catdoc, fi)
-        if TOO_SMALL_ERROR_ANTIWORD in result.stderr:
+        if TOO_SMALL_ERROR_ANTIWORD in result.stderr.decode('utf8', errors='backslashreplace'):
             logging.warning("'antiword' could not read the file, trying with 'catdoc'!")
             result = run_text_extraction(args.catdoc, fi)
 
-        process_text(result.stdout)
+        process_text(result.stdout.decode('utf8', errors='backslashreplace'))
 
 
 def run_text_extraction(cmd: str, d_path: str):
-    return subprocess.run([cmd, d_path], stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
+    return subprocess.run([cmd, d_path], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
 
 def process_text(txt_string: str):
