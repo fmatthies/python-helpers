@@ -4,6 +4,7 @@ import os
 import logging
 import argparse
 import glob
+import re
 
 TOO_SMALL_ERROR_ANTIWORD = "I'm afraid the text stream of this file is too small to handle."
 ANTIWORD_CMD = "antiword"
@@ -28,20 +29,23 @@ def run_batch(files: list, args):
         result = run_text_extraction(args.antiword if EXTRACTION_FLAG == ANTIWORD_CMD else args.catdoc, fi)
         if TOO_SMALL_ERROR_ANTIWORD in result.stderr.decode('utf8', errors='backslashreplace'):
             logging.warning("'antiword' could not read the file, trying with 'catdoc'!")
-            result = run_text_extraction(args.catdoc, fi)
+            result = run_text_extraction(args.catdoc, fi, True)
 
         process_text(result.stdout, fi)
 
 
-def run_text_extraction(cmd: str, d_path: str):
-    return subprocess.run([cmd, d_path], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+def run_text_extraction(cmd: str, d_path: str, catdoc: bool = False):
+    final_cmd = [cmd, '-w 0', d_path] if not catdoc else [cmd, '-w', d_path]
+    return subprocess.run(final_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
 
 def process_text(txt_string: bytes, file_name: str):
     # ToDo: should there be an option to deal with the table separator `|` that is inserted by antiword?
     # ToDo: because when these txt files are viewed in brat the formatting looks ugly again
     # ToDo: (probably because antiword uses simple spaces
-    with open(os.path.splitext(os.path.abspath(file_name))[0] + ".txt", 'wb') as out:
+    txt_string = re.sub(' {4,}', '    ', str(txt_string, 'utf-8'))
+    txt_string = re.sub(' {2,3}|\t', '  ', txt_string)
+    with open(os.path.splitext(os.path.abspath(file_name))[0] + ".txt", 'w') as out:
         out.write(txt_string)
 
 
@@ -55,7 +59,7 @@ def main(cmd_args: list):
     args = parser.parse_args(cmd_args[1:])
 
     try:
-        run_text_extraction(args.antiword, '')
+        run_text_extraction(args.antiword, '')  # just testing for whether 'antiword' is installed
         EXTRACTION_FLAG = ANTIWORD_CMD
     except FileNotFoundError:
         logging.warning("No 'antiword' found, switching to 'catdoc'!")
