@@ -30,7 +30,6 @@ def run_batch(files: list, args):
         if TOO_SMALL_ERROR_ANTIWORD in result.stderr.decode('utf8', errors='backslashreplace'):
             logging.warning("'antiword' could not read the file, trying with 'catdoc'!")
             result = run_text_extraction(args.catdoc, fi, True)
-
         process_text(result.stdout, fi)
 
 
@@ -45,7 +44,14 @@ def process_text(txt_string: bytes, file_name: str):
     # ToDo: (probably because antiword uses simple spaces
     txt_string = re.sub(' {4,}', '    ', str(txt_string, 'utf-8'))
     txt_string = re.sub(' {2,3}|\t', '  ', txt_string)
-    with open(os.path.splitext(os.path.abspath(file_name))[0] + ".txt", 'w') as out:
+
+    abs_path = os.path.abspath(file_name)
+    base_name = os.path.basename(abs_path)
+    out_foo = os.path.join(os.path.dirname(abs_path), "txt")
+    if not os.path.exists(out_foo):
+        os.makedirs(out_foo)
+    with open(os.path.join(out_foo, "{}.txt".format(os.path.splitext(base_name)[0])),
+              mode='w', encoding='utf-8', newline='\n') as out:
         out.write(txt_string)
 
 
